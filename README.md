@@ -1,4 +1,7 @@
 
+
+# MegaBox OS — Embedded C-Interpreter & Terminal OS for Arduino Mega 2560
+
 **MegaBox OS** is a lightweight, Unix-like embedded terminal and C-script interpreter environment engineered specifically for the **ATmega2560 (Arduino Mega 2560)**. Inspired by Linux terminal utilities (`bash`, `nano`, `free`, `ls`), MegaBox turns your micro-controller into an interactive, standalone programming environment capable of writing, saving, and executing live C-like scripts directly over Serial or dedicated I/O without needing to re-flash the AVR firmware via IDE.
 
 ---
@@ -68,3 +71,11 @@ Once connected via Serial Terminal (Baud Rate: `9600`, Line Ending: `Both NL & C
 Enter `nano logic.c` in the terminal, type the following code, and press **ENTER**:
 ```c
 pinMode(2, INPUT_PULLUP); pinMode(13, OUTPUT); if (digitalRead(2) == LOW) { digitalWrite(13, HIGH); }
+Then run the script:
+root@megabox:~# run logic.c
+Example B: Reading ADC & Sending Data over Secondary Hardware Serial (sensor.c)
+Serial1.begin(9600); map(analogRead(A15), 0, 1023, 0, 255); Serial1.println("Data processed");
+📐 Hardware Requirements
+* Board: Arduino Mega 2560 (ATmega2560)
+* USB Cable: Type-A to Type-B USB Cable
+* Terminal Emulator: Arduino Serial Monitor, PuTTY, Tera Term, or Serial/Minicom on Linux/macOS.
