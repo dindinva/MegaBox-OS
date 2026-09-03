@@ -86,57 +86,83 @@ Updated ***3 sep 2026***
 
 We have updated the project's Help System to include a comprehensive command reference for both **Linux** shell environments and **Arduino C/C++** microcontroller programming. Users can access this documentation interactively via the built-in Serial CLI or Terminal interface using the `help`, `linux`, or `arduino` commands.
 
----
+## 🚀 Update Notes: Micro-Shell CLI & Arduino C-Script Interpreter
 
-### 🐧 Linux Command Reference
-
-| Category | Command | Description |
-| :--- | :--- | :--- |
-| **File & Directory** | `ls -la` | List all files including hidden files with detailed permissions |
-| | `cd <path>` | Change working directory (`~` for home, `..` for parent) |
-| | `pwd` | Print current working directory path |
-| | `mkdir <dir>` | Create a new directory |
-| | `rm -rf <path>` | Remove files or directories recursively and forcefully |
-| | `cp <src> <dest>` | Copy files or directories |
-| | `mv <src> <dest>` | Move or rename files or directories |
-| | `cat <file>` | Display content of a file |
-| | `nano <file>` | Open text file in Nano editor |
-| **System & Hardware**| `sudo <command>` | Execute a command with superuser (root) privileges |
-| | `chmod +x <file>` | Grant execution permission to a file |
-| | `chown <user>:<group>`| Change file ownership |
-| | `dmesg \| tail` | View recent kernel and hardware connection logs |
-| | `lsusb` | List connected USB devices |
-| | `ls /dev/tty*` | List available serial communication ports |
+We have updated the project documentation to reflect the latest embedded CLI system running on the **ATmega2560**. The environment now features a simulated **Linux-like file system stored in EEPROM** alongside an **on-board C-Script Interpreter**.
 
 ---
 
-### ⚡ Arduino C/C++ Command Reference
+### 🐧 Linux System Commands (EEPROM & ATmega2560 Shell)
 
-| Category | Function / Command | Description |
+Commands executed directly in the embedded terminal to interact with EEPROM storage, monitor system memory (SRAM), and manage the ATmega2560 hardware.
+
+| Command | Usage | Description |
 | :--- | :--- | :--- |
-| **Core Structure** | `void setup()` | Runs once when power is applied or board is reset |
-| | `void loop()` | Runs continuously after setup completes |
-| **Digital & Analog I/O**| `pinMode(pin, mode)` | Configure pin behavior (`INPUT`, `OUTPUT`, `INPUT_PULLUP`) |
-| | `digitalWrite(pin, val)`| Write digital state (`HIGH` or `LOW`) to a pin |
+| **`ls`**, **`ls -l`** | `ls [-l]` | List files stored in EEPROM |
+| **`cat`** | `cat <file>` | Display content of a file |
+| **`touch`** | `touch <file>` | Create a new empty file in EEPROM |
+| **`rm`** | `rm <file>` | Remove a file from EEPROM storage |
+| **`cp`** | `cp <src> <dst>` | Copy file content to a new location |
+| **`wc`** | `wc <file>` | Count lines, words, and characters in a file |
+| **`pwd`** | `pwd` | Show current working directory |
+| **`echo`** | `echo <text>` | Print text string to terminal output |
+| **`clear`** | `clear` | Clear the terminal screen |
+| **`free`**, **`free -h`** | `free [-h]` | Display RAM (SRAM) and EEPROM usage status |
+| **`uptime`** | `uptime` | Show total system running time |
+| **`ps`**, **`top`** | `ps` / `top` | Display running tasks and active SRAM allocation |
+| **`dmesg`** | `dmesg` | Show system boot and initialization log |
+| **`whoami`** | `whoami` | Show current active user (`root`) |
+| **`hostname`** | `hostname` | Display device hostname |
+| **`uname -a`** | `uname -a` | Print Linux kernel details |
+| **`reboot`** | `reboot` | Restart the ATmega2560 board |
+
+---
+
+### ⚡ Arduino C-Script API Commands & Interpreter Functions
+
+Use built-in utility commands to write or execute lightweight C scripts directly on the board.
+
+#### 🛠 CLI Script Management
+* **`nano <file.c>`** : Open the built-in text editor to create/edit a C script.
+* **`run <file.c>`** : Execute the C script using the embedded interpreter.
+
+#### 📜 Supported Functions inside C Scripts
+
+| Category | API Function / Syntax | Description |
+| :--- | :--- | :--- |
+| **Digital I/O** | `pinMode(pin, mode)` | Configure pin state (`INPUT`, `OUTPUT`, `INPUT_PULLUP`) |
+| | `digitalWrite(pin, val)` | Set digital output state (`HIGH`, `LOW`) |
 | | `digitalRead(pin)` | Read digital state from a pin |
-| | `analogRead(pin)` | Read analog signal value (10-bit resolution: `0 - 1023`) |
-| | `analogWrite(pin, val)` | Output PWM signal (8-bit resolution: `0 - 255`) |
-| **Time Control** | `delay(ms)` | Pause execution for a given time in milliseconds |
-| | `delayMicroseconds(us)`| Pause execution for a given time in microseconds |
-| | `millis()` | Returns total runtime in milliseconds since power-on |
-| | `micros()` | Returns total runtime in microseconds since power-on |
-| **Serial Control** | `Serial.begin(speed)` | Initialize serial communication rate (e.g., `9600`) |
-| | `Serial.print(val)` | Print data to the Serial Monitor |
-| | `Serial.println(val)` | Print data with an appended newline character |
-| | `Serial.available()` | Return number of bytes available for reading in serial buffer |
-| | `Serial.read()` | Read the next incoming byte from serial buffer |
-| **Math & Advanced** | `map(v, fL, fH, tL, tH)`| Re-maps a number from one range to another |
-| | `constrain(amt, low, high)`| Constrain a value within specified lower and upper bounds |
-| | `attachInterrupt(...)` | Attach external hardware interrupt function to a pin |
+| | `togglePin(pin)` | Invert state of specified digital pin |
+| **Analog I/O** | `analogWrite(pin, val)` | Output PWM signal (`0 - 255`) |
+| | `analogRead(pin)` | Read analog input voltage (`0 - 1023`) |
+| | `analogReference(type)` | Set analog reference voltage (`DEFAULT`, `INTERNAL1V1`, etc.) |
+| **Time & Delays** | `delay(ms)` | Pause script execution in milliseconds |
+| | `delayMicroseconds(us)` | Pause script execution in microseconds |
+| | `millis()`, `micros()` | Return uptime timers (ms / us) |
+| **Audio & Signals** | `tone(pin, freq, [dur])` | Generate sound frequency on a pin |
+| | `noTone(pin)` | Stop active tone generation |
+| | `pulseIn(pin, state)` | Measure pulse width duration |
+| **Math & Utils** | `map(v, fL, fH, tL, tH)` | Map value from one range to another |
+| | `constrain(v, min, max)` | Clamp value bounds within min and max |
+| | `min(a,b)`, `max(a,b)`, `abs(x)` | Basic math operations |
+| | `sqrt(x)` | Calculate square root |
+| | `bitSet(x,n)`, `bitClear(x,n)` | Perform bitwise manipulation |
+| **I2C Communication**| `Wire.begin()` | Initialize I2C bus |
+| | `wireScan()` | Scan I2C bus for connected device addresses |
+| **Serial & Control** | `Serial.println("text")` | Output text to serial console |
+| | `if (cond) { body }` | Standard C conditional logic branching support |
 
 ---
 
-### 🛠 How to Access Help in the Program
+### 💡 Quick Start Example
 
-- **Via Serial Monitor (Arduino):** Open Serial Monitor at **9600 Baud** and send `help`, `linux`, or `arduino`.
-- **Via Linux Terminal (Python CLI):** Execute the script and enter `help` at the prompt to print the full reference table.
+```bash
+# 1. Create a C script in EEPROM
+nano blink.c
+
+# 2. Write code inside editor (1 line), then press ENTER to save
+pinMode(13, OUTPUT);digitalWrite(13, HIGH);delay(1000);digitalWrite(13, LOW);
+
+# 3. Execute the script
+run blink.c
