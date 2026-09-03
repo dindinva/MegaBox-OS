@@ -79,3 +79,64 @@ Serial1.begin(9600); map(analogRead(A15), 0, 1023, 0, 255); Serial1.println("Dat
 * Board: Arduino Mega 2560 (ATmega2560)
 * USB Cable: Type-A to Type-B USB Cable
 * Terminal Emulator: Arduino Serial Monitor, PuTTY, Tera Term, or Serial/Minicom on Linux/macOS.
+
+
+Updated ***3 sep 2026***
+## 🚀 Update Notes: Command Reference & Help System Integration
+
+We have updated the project's Help System to include a comprehensive command reference for both **Linux** shell environments and **Arduino C/C++** microcontroller programming. Users can access this documentation interactively via the built-in Serial CLI or Terminal interface using the `help`, `linux`, or `arduino` commands.
+
+---
+
+### 🐧 Linux Command Reference
+
+| Category | Command | Description |
+| :--- | :--- | :--- |
+| **File & Directory** | `ls -la` | List all files including hidden files with detailed permissions |
+| | `cd <path>` | Change working directory (`~` for home, `..` for parent) |
+| | `pwd` | Print current working directory path |
+| | `mkdir <dir>` | Create a new directory |
+| | `rm -rf <path>` | Remove files or directories recursively and forcefully |
+| | `cp <src> <dest>` | Copy files or directories |
+| | `mv <src> <dest>` | Move or rename files or directories |
+| | `cat <file>` | Display content of a file |
+| | `nano <file>` | Open text file in Nano editor |
+| **System & Hardware**| `sudo <command>` | Execute a command with superuser (root) privileges |
+| | `chmod +x <file>` | Grant execution permission to a file |
+| | `chown <user>:<group>`| Change file ownership |
+| | `dmesg \| tail` | View recent kernel and hardware connection logs |
+| | `lsusb` | List connected USB devices |
+| | `ls /dev/tty*` | List available serial communication ports |
+
+---
+
+### ⚡ Arduino C/C++ Command Reference
+
+| Category | Function / Command | Description |
+| :--- | :--- | :--- |
+| **Core Structure** | `void setup()` | Runs once when power is applied or board is reset |
+| | `void loop()` | Runs continuously after setup completes |
+| **Digital & Analog I/O**| `pinMode(pin, mode)` | Configure pin behavior (`INPUT`, `OUTPUT`, `INPUT_PULLUP`) |
+| | `digitalWrite(pin, val)`| Write digital state (`HIGH` or `LOW`) to a pin |
+| | `digitalRead(pin)` | Read digital state from a pin |
+| | `analogRead(pin)` | Read analog signal value (10-bit resolution: `0 - 1023`) |
+| | `analogWrite(pin, val)` | Output PWM signal (8-bit resolution: `0 - 255`) |
+| **Time Control** | `delay(ms)` | Pause execution for a given time in milliseconds |
+| | `delayMicroseconds(us)`| Pause execution for a given time in microseconds |
+| | `millis()` | Returns total runtime in milliseconds since power-on |
+| | `micros()` | Returns total runtime in microseconds since power-on |
+| **Serial Control** | `Serial.begin(speed)` | Initialize serial communication rate (e.g., `9600`) |
+| | `Serial.print(val)` | Print data to the Serial Monitor |
+| | `Serial.println(val)` | Print data with an appended newline character |
+| | `Serial.available()` | Return number of bytes available for reading in serial buffer |
+| | `Serial.read()` | Read the next incoming byte from serial buffer |
+| **Math & Advanced** | `map(v, fL, fH, tL, tH)`| Re-maps a number from one range to another |
+| | `constrain(amt, low, high)`| Constrain a value within specified lower and upper bounds |
+| | `attachInterrupt(...)` | Attach external hardware interrupt function to a pin |
+
+---
+
+### 🛠 How to Access Help in the Program
+
+- **Via Serial Monitor (Arduino):** Open Serial Monitor at **9600 Baud** and send `help`, `linux`, or `arduino`.
+- **Via Linux Terminal (Python CLI):** Execute the script and enter `help` at the prompt to print the full reference table.
