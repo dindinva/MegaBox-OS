@@ -69,7 +69,7 @@ Once connected via Serial Terminal (Baud Rate: `9600`, Line Ending: `Both NL & C
 
 #### Example A: Conditional Button LED Trigger (`logic.c`)
 Enter `nano logic.c` in the terminal, type the following code, and press **ENTER**:
-```c
+
 pinMode(2, INPUT_PULLUP); pinMode(13, OUTPUT); if (digitalRead(2) == LOW) { digitalWrite(13, HIGH); }
 Then run the script:
 root@megabox:~# run logic.c
