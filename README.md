@@ -24,7 +24,9 @@
   * Embedded Memory Allocation Monitor tracking heap/stack usage in real time.
 
 ---
-
+Usage example:
+https://youtu.be/_VCTRxD8m0M?si=hv8ieFO4rIRtqwD9
+-----
 ## 🛠️ Supported C Interpreter Functions
 
 MegaBox interprets the following syntax inside `.c` scripts saved on the device:
