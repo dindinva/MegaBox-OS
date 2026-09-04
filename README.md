@@ -81,7 +81,7 @@ Serial1.begin(9600); map(analogRead(A15), 0, 1023, 0, 255); Serial1.println("Dat
 * Terminal Emulator: Arduino Serial Monitor, PuTTY, Tera Term, or Serial/Minicom on Linux/macOS.
 
 
-Updated ***3 sep 2026***
+Updated ***4 sep 2026***
 ## 🚀 Update Notes: Command Reference & Help System Integration
 
 We have updated the project's Help System to include a comprehensive command reference for both **Linux** shell environments and **Arduino C/C++** microcontroller programming. Users can access this documentation interactively via the built-in Serial CLI or Terminal interface using the `help`, `linux`, or `arduino` commands.
