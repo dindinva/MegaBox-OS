@@ -51,8 +51,9 @@ int findFile(const char* name) {
   return -1;
 }
 
+// ปรับปรุง trim() ให้ลบเฉพาะ ; ปิดท้ายคำสั่งเดี่ยว ไม่ลบทั้งสายคำสั่ง
 char* trim(char* str) {
-  while (*str == ' ' || *str == '\t') str++;
+  while (*str == ' ' || *str == '\t' || *str == '\r' || *str == '\n') str++;
   if (*str == 0) return str;
   char* end = str + strlen(str) - 1;
   while (end > str && (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n' || *end == ';')) {
@@ -346,7 +347,7 @@ void executeCLine(char* line) {
         long baud = atol(argList[0]);
         targetSerial->begin(baud);
         Serial.print(F(" [C Exec] ")); Serial.print(funcName); Serial.print(F("(")); Serial.print(baud); Serial.println(F(")"));
-      } else if (strstr(funcName, ".println") && argCount >= 1) {
+      } else if (strstr(strstr(funcName, ".print") ? funcName : "", "ln") && argCount >= 1) {
         char* printStr = trim(argList[0]);
         if (printStr[0] == '"') printStr++;
         if (printStr[strlen(printStr) - 1] == '"') printStr[strlen(printStr) - 1] = '\0';
@@ -359,6 +360,7 @@ void executeCLine(char* line) {
   }
 }
 
+// แก้ไขฟังก์ชันรันไฟล์ให้อ่านและคั่นด้วยทั้ง \n, \r และ ;
 void runCScript(const char* filename) {
   int idx = findFile(filename);
   if (idx == -1) {
@@ -377,10 +379,17 @@ void runCScript(const char* filename) {
 
   char lineBuffer[MAX_CMD_LEN];
   uint8_t lineIdx = 0;
+  bool inQuotes = false;
 
   for (uint16_t i = 0; i < len; i++) {
     char c = EEPROM.read(addr + 2 + i);
-    if (c == '\n' || c == '\r') {
+
+    if (c == '"') {
+      inQuotes = !inQuotes;
+    }
+
+    // หากเจอ \n, \r หรือ ; (ขณะไม่ได้อยู่ในเครื่องหมายคำพูด ") ให้รันคำสั่งทันที
+    if ((c == '\n' || c == '\r' || (c == ';' && !inQuotes))) {
       lineBuffer[lineIdx] = '\0';
       executeCLine(lineBuffer);
       lineIdx = 0;
