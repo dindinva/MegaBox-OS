@@ -1,11 +1,11 @@
-// update 5 sep 2026 add ed editor and loop function (Fixed Core Interpreter Engine)
+// update 6 sep 2026 fixed for-loop.
 
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <Wire.h>
 
 #define HOSTNAME "megabox"
-#define KERNEL_VER "6.9.1-mega-full-linux"
+#define KERNEL_VER "6.9.2-mega-full-linux"
 #define MAX_CMD_LEN 160
 #define MAX_FILE_SIZE 512
 
@@ -83,6 +83,15 @@ void cmdTouch(const char* filename);
 
 int parsePinOrValue(char* arg) {
   arg = trim(arg);
+  
+  // ตัดเครื่องหมายวงเล็บปิดหรืออักขระส่วนเกินที่อาจติดมาจากอาร์กิวเมนต์
+  int len = strlen(arg);
+  while (len > 0 && (arg[len - 1] == ')' || arg[len - 1] == ';')) {
+    arg[len - 1] = '\0';
+    len--;
+  }
+  arg = trim(arg);
+
   if (strcmp(arg, "HIGH") == 0 || strcmp(arg, "OUTPUT") == 0 || strcmp(arg, "true") == 0) return 1;
   if (strcmp(arg, "LOW") == 0 || strcmp(arg, "INPUT") == 0 || strcmp(arg, "false") == 0) return 0;
   if (strcmp(arg, "INPUT_PULLUP") == 0) return INPUT_PULLUP;
@@ -127,6 +136,7 @@ int evaluateExpression(char* expr) {
     if (p) {
       char temp[40];
       strncpy(temp, p + 1, sizeof(temp) - 1);
+      temp[sizeof(temp) - 1] = '\0';
       char* comma = strchr(temp, ',');
       if (comma) {
         *comma = '\0';
@@ -141,6 +151,7 @@ int evaluateExpression(char* expr) {
     if (p) {
       char temp[40];
       strncpy(temp, p + 1, sizeof(temp) - 1);
+      temp[sizeof(temp) - 1] = '\0';
       char* comma = strchr(temp, ',');
       if (comma) {
         *comma = '\0';
@@ -162,7 +173,7 @@ int evaluateExpression(char* expr) {
   return parsePinOrValue(expr);
 }
 
-// ปรับแก้ evalCondition ไม่ใช้ strtok ป้องกันปัญหา Recursion เขียนทับข้อมูล
+// ปรับแก้ evalCondition ป้องกันปัญหา Recursion เขียนทับข้อมูล
 bool evalCondition(char* condStr) {
   condStr = trim(condStr);
   const char* op = NULL;
@@ -219,6 +230,23 @@ char* findMatchingBrace(char* start) {
   return NULL;
 }
 
+// ค้นหาวงเล็บปิดที่ตรงคู่กัน
+char* findMatchingParen(char* start) {
+  int depth = 0;
+  bool inQuotes = false;
+  for (char* p = start; *p != '\0'; p++) {
+    if (*p == '"') inQuotes = !inQuotes;
+    if (!inQuotes) {
+      if (*p == '(') depth++;
+      else if (*p == ')') {
+        depth--;
+        if (depth == 0) return p;
+      }
+    }
+  }
+  return NULL;
+}
+
 void executeCBlock(char* block);
 
 void executeCLine(char* line) {
@@ -228,7 +256,7 @@ void executeCLine(char* line) {
   // IF statement
   if (strncmp(line, "if", 2) == 0) {
     char* openParen = strchr(line, '(');
-    char* closeParen = strchr(line, ')');
+    char* closeParen = openParen ? findMatchingParen(openParen) : NULL;
     if (openParen && closeParen && closeParen > openParen) {
       char condStr[60];
       uint8_t cLen = closeParen - openParen - 1;
@@ -254,10 +282,10 @@ void executeCLine(char* line) {
     }
   }
 
-  // FIXED: WHILE loop
+  // WHILE loop
   if (strncmp(line, "while", 5) == 0) {
     char* openParen = strchr(line, '(');
-    char* closeParen = strchr(line, ')');
+    char* closeParen = openParen ? findMatchingParen(openParen) : NULL;
     if (openParen && closeParen && closeParen > openParen) {
       char condStr[60];
       uint8_t cLen = closeParen - openParen - 1;
@@ -272,10 +300,11 @@ void executeCLine(char* line) {
       strncpy(bodyBuf, body, sizeof(bodyBuf) - 1);
       bodyBuf[sizeof(bodyBuf) - 1] = '\0';
 
-      if (bodyBuf[0] == '{') {
-        char* closeBrace = findMatchingBrace(bodyBuf);
+      char* realBody = bodyBuf;
+      if (realBody[0] == '{') {
+        char* closeBrace = findMatchingBrace(realBody);
         if (closeBrace) *closeBrace = '\0';
-        memmove(bodyBuf, bodyBuf + 1, strlen(bodyBuf));
+        realBody++;
       }
 
       int maxIter = 100;
@@ -283,19 +312,18 @@ void executeCLine(char* line) {
         char tempCond[60];
         strcpy(tempCond, condStr);
         if (!evalCondition(tempCond)) break;
-        executeCBlock(bodyBuf);
+        executeCBlock(realBody);
       }
       return;
     }
   }
 
-  // FIXED: DO ... WHILE loop
+  // DO ... WHILE loop
   if (strncmp(line, "do", 2) == 0) {
     char* bodyStart = line + 2;
     bodyStart = trim(bodyStart);
 
-    char* whilePtr = strrchr(bodyStart, 'w');
-    if (!whilePtr) whilePtr = strstr(bodyStart, "while");
+    char* whilePtr = strstr(bodyStart, "while");
 
     if (whilePtr) {
       char bodyBuf[120];
@@ -312,7 +340,7 @@ void executeCLine(char* line) {
       }
 
       char* openParen = strchr(whilePtr, '(');
-      char* closeParen = strrchr(whilePtr, ')');
+      char* closeParen = openParen ? findMatchingParen(openParen) : NULL;
       if (openParen && closeParen && closeParen > openParen) {
         char condStr[60];
         uint8_t cLen = closeParen - openParen - 1;
@@ -332,10 +360,10 @@ void executeCLine(char* line) {
     }
   }
 
-  // FOR loop
+  // FOR loop (FIXED & EXTENDED: รองรับทั้ง for(5) และ C-style for(i=0; i<5; i++))
   if (strncmp(line, "for", 3) == 0) {
     char* openParen = strchr(line, '(');
-    char* closeParen = strchr(line, ')');
+    char* closeParen = openParen ? findMatchingParen(openParen) : NULL;
     if (openParen && closeParen && closeParen > openParen) {
       char headerStr[80];
       uint8_t hLen = closeParen - openParen - 1;
@@ -343,46 +371,50 @@ void executeCLine(char* line) {
       strncpy(headerStr, openParen + 1, hLen);
       headerStr[hLen] = '\0';
 
-      char countStr[30] = "";
-      char condStr[40] = "";
-      
-      char* p1 = strchr(headerStr, ';');
-      if (p1) {
-        uint8_t len1 = p1 - headerStr;
-        strncpy(countStr, headerStr, len1);
-        countStr[len1] = '\0';
-        
-        char* p2 = strchr(p1 + 1, ';');
-        if (p2) {
-          uint8_t len2 = p2 - (p1 + 1);
-          strncpy(condStr, p1 + 1, len2);
-          condStr[len2] = '\0';
+      int count = 0;
+      char* semi1 = strchr(headerStr, ';');
+      if (semi1) {
+        char* semi2 = strchr(semi1 + 1, ';');
+        char condStr[40] = "";
+        if (semi2) {
+          uint8_t cLen = semi2 - (semi1 + 1);
+          if (cLen >= sizeof(condStr)) cLen = sizeof(condStr) - 1;
+          strncpy(condStr, semi1 + 1, cLen);
+          condStr[cLen] = '\0';
         } else {
-          strcpy(condStr, p1 + 1);
+          strcpy(condStr, semi1 + 1);
+        }
+        
+        char* op = strpbrk(condStr, "<=>");
+        if (op) {
+          while (*op == '<' || *op == '=' || *op == '>' || *op == '!') op++;
+          count = parsePinOrValue(op);
+        } else {
+          count = parsePinOrValue(condStr);
         }
       } else {
-        strcpy(countStr, headerStr);
+        count = parsePinOrValue(headerStr);
       }
 
-      char* body = closeParen + 1;
-      body = trim(body);
-      if (body[0] == '{') {
-        char* closeBrace = findMatchingBrace(body);
-        if (closeBrace) *closeBrace = '\0';
-        body++;
-      }
-
-      int count = (strlen(countStr) > 0) ? parsePinOrValue(countStr) : 1;
       if (count <= 0) count = 1;
       if (count > 100) count = 100;
 
+      char* body = closeParen + 1;
+      body = trim(body);
+      
+      char bodyBuf[160];
+      strncpy(bodyBuf, body, sizeof(bodyBuf) - 1);
+      bodyBuf[sizeof(bodyBuf) - 1] = '\0';
+      char* realBody = bodyBuf;
+
+      if (realBody[0] == '{') {
+        char* closeBrace = findMatchingBrace(realBody);
+        if (closeBrace) *closeBrace = '\0';
+        realBody++;
+      }
+
       for (int i = 0; i < count; i++) {
-        if (strlen(condStr) > 0) {
-          char tempCond[60];
-          strcpy(tempCond, condStr);
-          if (!evalCondition(tempCond)) break;
-        }
-        executeCBlock(body);
+        executeCBlock(realBody);
       }
       return;
     }
@@ -554,11 +586,21 @@ void executeCLine(char* line) {
         long baud = atol(argList[0]);
         targetSerial->begin(baud);
         Serial.print(F(" [C Exec] ")); Serial.print(funcName); Serial.print(F("(")); Serial.print(baud); Serial.println(F(")"));
-      } else if (strstr(strstr(funcName, ".print") ? funcName : "", "ln") && argCount >= 1) {
+      } else if (strstr(funcName, ".print") && argCount >= 1) {
+        bool isLn = (strstr(funcName, "ln") != NULL);
         char* printStr = trim(argList[0]);
-        if (printStr[0] == '"') printStr++;
-        if (printStr[strlen(printStr) - 1] == '"') printStr[strlen(printStr) - 1] = '\0';
-        targetSerial->println(printStr);
+
+        if (printStr[0] == '"') {
+          printStr++;
+          int pLen = strlen(printStr);
+          if (pLen > 0 && printStr[pLen - 1] == '"') printStr[pLen - 1] = '\0';
+          if (isLn) targetSerial->println(printStr);
+          else targetSerial->print(printStr);
+        } else {
+          int val = evaluateExpression(printStr);
+          if (isLn) targetSerial->println(val);
+          else targetSerial->print(val);
+        }
       }
     }
     else {
@@ -673,6 +715,7 @@ void cmdTouch(const char* filename) {
   for (int i = 0; i < MAX_FILES; i++) {
     if (!fileTable[i].used) {
       strncpy(fileTable[i].name, filename, 15);
+      fileTable[i].name[15] = '\0';
       fileTable[i].used = true;
       uint16_t addr = fileTable[i].address;
       EEPROM.write(addr, 0);
@@ -817,6 +860,7 @@ void saveEdBufferToEEPROM(const char* targetFilename) {
 
   editingFileIdx = idx;
   strncpy(edFilename, fn, 15);
+  edFilename[15] = '\0';
 
   uint16_t addr = fileTable[editingFileIdx].address;
   uint16_t writePos = addr + 2;
@@ -845,6 +889,7 @@ void saveEdBufferToEEPROM(const char* targetFilename) {
 
 void startEd(const char* filename) {
   strncpy(edFilename, filename, 15);
+  edFilename[15] = '\0';
   int idx = findFile(filename);
 
   editingFileIdx = idx;
