@@ -32,9 +32,10 @@ https://youtu.be/_VCTRxD8m0M?si=hv8ieFO4rIRtqwD9
  * help: Displays all available Linux system commands and Arduino C-Script API functions.
  * help linux: Displays only the Linux system commands.
  * help arduino: Displays only the Arduino C-Script API commands and functions.
+ * 
 🐧 Linux System Commands
-| Command | Description / Function |
-|---|---|
+
+| Command | Description / Function|
 | ls, ls -l | List all files stored in EEPROM |
 | cat <file> | Display the contents of a file |
 | touch <file> | Create a new empty file |
@@ -52,10 +53,12 @@ https://youtu.be/_VCTRxD8m0M?si=hv8ieFO4rIRtqwD9
 | hostname | Show the device hostname (megabox) |
 | uname, uname -a | Show system and Linux kernel details |
 | reboot | Restart the ATmega2560 board |
+
 🛠️ Arduino C-Script Management, Editing & Execution
  * ed <file>: Open the Unix ed line-oriented text editor (full function Unix text editor commands).
  * nano <file.c>: Open the Nano basic text editor to write a C script--(can not edit)
  * run <file.c>: Execute a C script using the built-in interpreter.
+ * 
 ⚡ Supported C-Script API Functions
  * Digital I/O Operations:
    * pinMode(pin, mode): Set pin mode (INPUT, OUTPUT, INPUT_PULLUP).
