@@ -141,16 +141,17 @@ Then run the script:
 
 root@megabox:~# run logic.c
 
-#### Example B: Reading ADC & Sending Data over Secondary Hardware Serial (sensor.c)
+#### Example B: while loop
 
-Serial1.begin(9600); map(analogRead(A15), 0, 1023, 0, 255); Serial1.println("Data processed");
-
-
-#### Example C: Blink led
+while(true){togglePin(13);delay(500);}
 
 
 
-pinMode(13, OUTPUT);digitalWrite(13, HIGH);delay(1000);digitalWrite(13, LOW);
+#### Example C: for loop
+
+
+
+for(i=0;i<6;i++){togglePin(13);delay(500);}
 
 
 
@@ -159,11 +160,12 @@ pinMode(13, OUTPUT);digitalWrite(13, HIGH);delay(1000);digitalWrite(13, LOW);
 * USB Cable: Type-A to Type-B USB Cable
 * Terminal Emulator: Arduino Serial Monitor, PuTTY, Tera Term, or Serial/Minicom on Linux/macOS.
 
-* 
-Updated ***5 sep 2026***
+Updated ***6 Sep 2026***
+#### Fixed for-loop.
+Updated ***5 Sep 2026***
 #### 🚀 Update Notes: Command Reference & Help System Integration,add ed editor and loop commands version 6.9.1
 
-Updated ***4 sep 2026***
+Updated ***4 Sep 2026***
 #### 🚀 Update Notes: Command Reference & Help System Integration version 6.9.0
 
 
