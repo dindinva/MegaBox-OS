@@ -1,9 +1,11 @@
+// update 5 sep 2026 add ed editor and loop function (Fixed Core Interpreter Engine)
+
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <Wire.h>
 
 #define HOSTNAME "megabox"
-#define KERNEL_VER "6.9.0-mega-full-linux"
+#define KERNEL_VER "6.9.1-mega-full-linux"
 #define MAX_CMD_LEN 160
 #define MAX_FILE_SIZE 512
 
@@ -27,8 +29,23 @@ FileHeader fileTable[MAX_FILES] = {
 
 char inputBuffer[MAX_CMD_LEN];
 uint8_t bufferIndex = 0;
-bool isEditing = false;
+
+enum EditorMode { MODE_SHELL, MODE_NANO, MODE_ED_CMD, MODE_ED_INPUT };
+EditorMode currentMode = MODE_SHELL;
+
 int editingFileIdx = -1;
+
+// -------------------------------------------------------------------
+// FULL UNIX ED ENGINE DATA STRUCTURES & DATA HANDLERS
+// -------------------------------------------------------------------
+#define MAX_ED_LINES 32
+#define MAX_ED_LINE_LEN 64
+
+char edBuffer[MAX_ED_LINES][MAX_ED_LINE_LEN];
+int edLineCount = 0;
+int edCurrentLine = 0; // 1-based index (0 = empty buffer)
+bool edModified = false;
+char edFilename[16] = ""; // บันทึกชื่อไฟล์ปัจจุบันที่เปิดใช้งาน
 
 void (*resetFunc)(void) = 0; // Soft reset pointer
 
@@ -51,7 +68,6 @@ int findFile(const char* name) {
   return -1;
 }
 
-// ปรับปรุง trim() ให้ลบเฉพาะ ; ปิดท้ายคำสั่งเดี่ยว ไม่ลบทั้งสายคำสั่ง
 char* trim(char* str) {
   while (*str == ' ' || *str == '\t' || *str == '\r' || *str == '\n') str++;
   if (*str == 0) return str;
@@ -62,6 +78,8 @@ char* trim(char* str) {
   }
   return str;
 }
+
+void cmdTouch(const char* filename);
 
 int parsePinOrValue(char* arg) {
   arg = trim(arg);
@@ -84,7 +102,7 @@ int parsePinOrValue(char* arg) {
 }
 
 // -------------------------------------------------------------------
-// EXTENDED ARDUINO C-SCRIPT INTERPRETER ENGINE
+// EXTENDED ARDUINO C-SCRIPT INTERPRETER ENGINE (FIXED & REFACTORED)
 // -------------------------------------------------------------------
 
 int evaluateExpression(char* expr) {
@@ -107,17 +125,29 @@ int evaluateExpression(char* expr) {
   else if (strncmp(expr, "min", 3) == 0) {
     char* p = strchr(expr, '(');
     if (p) {
-      char* arg1 = strtok(p + 1, ",");
-      char* arg2 = strtok(NULL, ")");
-      if (arg1 && arg2) return min(parsePinOrValue(arg1), parsePinOrValue(arg2));
+      char temp[40];
+      strncpy(temp, p + 1, sizeof(temp) - 1);
+      char* comma = strchr(temp, ',');
+      if (comma) {
+        *comma = '\0';
+        char* closeP = strchr(comma + 1, ')');
+        if (closeP) *closeP = '\0';
+        return min(parsePinOrValue(temp), parsePinOrValue(comma + 1));
+      }
     }
   }
   else if (strncmp(expr, "max", 3) == 0) {
     char* p = strchr(expr, '(');
     if (p) {
-      char* arg1 = strtok(p + 1, ",");
-      char* arg2 = strtok(NULL, ")");
-      if (arg1 && arg2) return max(parsePinOrValue(arg1), parsePinOrValue(arg2));
+      char temp[40];
+      strncpy(temp, p + 1, sizeof(temp) - 1);
+      char* comma = strchr(temp, ',');
+      if (comma) {
+        *comma = '\0';
+        char* closeP = strchr(comma + 1, ')');
+        if (closeP) *closeP = '\0';
+        return max(parsePinOrValue(temp), parsePinOrValue(comma + 1));
+      }
     }
   }
   else if (strncmp(expr, "abs", 3) == 0) {
@@ -132,58 +162,233 @@ int evaluateExpression(char* expr) {
   return parsePinOrValue(expr);
 }
 
+// ปรับแก้ evalCondition ไม่ใช้ strtok ป้องกันปัญหา Recursion เขียนทับข้อมูล
+bool evalCondition(char* condStr) {
+  condStr = trim(condStr);
+  const char* op = NULL;
+  uint8_t opLen = 0;
+
+  if ((op = strstr(condStr, "=="))) opLen = 2;
+  else if ((op = strstr(condStr, "!="))) opLen = 2;
+  else if ((op = strstr(condStr, ">="))) opLen = 2;
+  else if ((op = strstr(condStr, "<="))) opLen = 2;
+  else if ((op = strstr(condStr, ">"))) opLen = 1;
+  else if ((op = strstr(condStr, "<"))) opLen = 1;
+
+  if (op) {
+    char left[40];
+    char right[40];
+    uint8_t lLen = op - condStr;
+    if (lLen >= sizeof(left)) lLen = sizeof(left) - 1;
+    strncpy(left, condStr, lLen);
+    left[lLen] = '\0';
+
+    strncpy(right, op + opLen, sizeof(right) - 1);
+    right[sizeof(right) - 1] = '\0';
+
+    int leftVal = evaluateExpression(left);
+    int rightVal = evaluateExpression(right);
+
+    if (opLen == 2) {
+      if (op[0] == '=') return leftVal == rightVal;
+      if (op[0] == '!') return leftVal != rightVal;
+      if (op[0] == '>') return leftVal >= rightVal;
+      if (op[0] == '<') return leftVal <= rightVal;
+    } else {
+      if (op[0] == '>') return leftVal > rightVal;
+      if (op[0] == '<') return leftVal < rightVal;
+    }
+  }
+  return evaluateExpression(condStr) != 0;
+}
+
+// ค้นหาปีกกาปิดที่ตรงคู่กัน
+char* findMatchingBrace(char* start) {
+  int depth = 0;
+  bool inQuotes = false;
+  for (char* p = start; *p != '\0'; p++) {
+    if (*p == '"') inQuotes = !inQuotes;
+    if (!inQuotes) {
+      if (*p == '{') depth++;
+      else if (*p == '}') {
+        depth--;
+        if (depth == 0) return p;
+      }
+    }
+  }
+  return NULL;
+}
+
+void executeCBlock(char* block);
+
 void executeCLine(char* line) {
   line = trim(line);
   if (strlen(line) == 0 || line[0] == '/' || line[0] == '#') return;
 
+  // IF statement
   if (strncmp(line, "if", 2) == 0) {
     char* openParen = strchr(line, '(');
     char* closeParen = strchr(line, ')');
     if (openParen && closeParen && closeParen > openParen) {
       char condStr[60];
       uint8_t cLen = closeParen - openParen - 1;
+      if (cLen >= sizeof(condStr)) cLen = sizeof(condStr) - 1;
       strncpy(condStr, openParen + 1, cLen);
       condStr[cLen] = '\0';
 
       char* body = closeParen + 1;
       body = trim(body);
-      if (body[0] == '{') body++;
-      char* closeBrace = strrchr(body, '}');
-      if (closeBrace) *closeBrace = '\0';
 
-      bool conditionMet = false;
-      if (strstr(condStr, "==")) {
-        char* left = strtok(condStr, "==");
-        char* right = strtok(NULL, "==");
-        if (left && right) conditionMet = (evaluateExpression(left) == evaluateExpression(right));
-      } else if (strstr(condStr, "!=")) {
-        char* left = strtok(condStr, "!=");
-        char* right = strtok(NULL, "!=");
-        if (left && right) conditionMet = (evaluateExpression(left) != evaluateExpression(right));
-      } else if (strstr(condStr, ">=")) {
-        char* left = strtok(condStr, ">=");
-        char* right = strtok(NULL, ">=");
-        if (left && right) conditionMet = (evaluateExpression(left) >= evaluateExpression(right));
-      } else if (strstr(condStr, "<=")) {
-        char* left = strtok(condStr, "<=");
-        char* right = strtok(NULL, "<=");
-        if (left && right) conditionMet = (evaluateExpression(left) <= evaluateExpression(right));
-      } else if (strstr(condStr, ">")) {
-        char* left = strtok(condStr, ">");
-        char* right = strtok(NULL, ">");
-        if (left && right) conditionMet = (evaluateExpression(left) > evaluateExpression(right));
-      } else if (strstr(condStr, "<")) {
-        char* left = strtok(condStr, "<");
-        char* right = strtok(NULL, "<");
-        if (left && right) conditionMet = (evaluateExpression(left) < evaluateExpression(right));
+      if (evalCondition(condStr)) {
+        if (body[0] == '{') {
+          char* closeBrace = findMatchingBrace(body);
+          if (closeBrace) *closeBrace = '\0';
+          executeCBlock(body + 1);
+        } else {
+          executeCLine(body);
+        }
+      } else {
+        Serial.println(F(" [C Skip] IF Condition False"));
       }
-
-      if (conditionMet) executeCLine(body);
-      else Serial.println(F(" [C Skip] IF Condition False"));
       return;
     }
   }
 
+  // FIXED: WHILE loop
+  if (strncmp(line, "while", 5) == 0) {
+    char* openParen = strchr(line, '(');
+    char* closeParen = strchr(line, ')');
+    if (openParen && closeParen && closeParen > openParen) {
+      char condStr[60];
+      uint8_t cLen = closeParen - openParen - 1;
+      if (cLen >= sizeof(condStr)) cLen = sizeof(condStr) - 1;
+      strncpy(condStr, openParen + 1, cLen);
+      condStr[cLen] = '\0';
+
+      char* body = closeParen + 1;
+      body = trim(body);
+
+      char bodyBuf[120];
+      strncpy(bodyBuf, body, sizeof(bodyBuf) - 1);
+      bodyBuf[sizeof(bodyBuf) - 1] = '\0';
+
+      if (bodyBuf[0] == '{') {
+        char* closeBrace = findMatchingBrace(bodyBuf);
+        if (closeBrace) *closeBrace = '\0';
+        memmove(bodyBuf, bodyBuf + 1, strlen(bodyBuf));
+      }
+
+      int maxIter = 100;
+      while (maxIter-- > 0) {
+        char tempCond[60];
+        strcpy(tempCond, condStr);
+        if (!evalCondition(tempCond)) break;
+        executeCBlock(bodyBuf);
+      }
+      return;
+    }
+  }
+
+  // FIXED: DO ... WHILE loop
+  if (strncmp(line, "do", 2) == 0) {
+    char* bodyStart = line + 2;
+    bodyStart = trim(bodyStart);
+
+    char* whilePtr = strrchr(bodyStart, 'w');
+    if (!whilePtr) whilePtr = strstr(bodyStart, "while");
+
+    if (whilePtr) {
+      char bodyBuf[120];
+      uint8_t bLen = whilePtr - bodyStart;
+      if (bLen >= sizeof(bodyBuf)) bLen = sizeof(bodyBuf) - 1;
+      strncpy(bodyBuf, bodyStart, bLen);
+      bodyBuf[bLen] = '\0';
+
+      char* trimmedBody = trim(bodyBuf);
+      if (trimmedBody[0] == '{') {
+        char* closeBrace = findMatchingBrace(trimmedBody);
+        if (closeBrace) *closeBrace = '\0';
+        trimmedBody++;
+      }
+
+      char* openParen = strchr(whilePtr, '(');
+      char* closeParen = strrchr(whilePtr, ')');
+      if (openParen && closeParen && closeParen > openParen) {
+        char condStr[60];
+        uint8_t cLen = closeParen - openParen - 1;
+        if (cLen >= sizeof(condStr)) cLen = sizeof(condStr) - 1;
+        strncpy(condStr, openParen + 1, cLen);
+        condStr[cLen] = '\0';
+
+        int maxIter = 100;
+        do {
+          executeCBlock(trimmedBody);
+          char tempCond[60];
+          strcpy(tempCond, condStr);
+          if (!evalCondition(tempCond)) break;
+        } while (--maxIter > 0);
+        return;
+      }
+    }
+  }
+
+  // FOR loop
+  if (strncmp(line, "for", 3) == 0) {
+    char* openParen = strchr(line, '(');
+    char* closeParen = strchr(line, ')');
+    if (openParen && closeParen && closeParen > openParen) {
+      char headerStr[80];
+      uint8_t hLen = closeParen - openParen - 1;
+      if (hLen >= sizeof(headerStr)) hLen = sizeof(headerStr) - 1;
+      strncpy(headerStr, openParen + 1, hLen);
+      headerStr[hLen] = '\0';
+
+      char countStr[30] = "";
+      char condStr[40] = "";
+      
+      char* p1 = strchr(headerStr, ';');
+      if (p1) {
+        uint8_t len1 = p1 - headerStr;
+        strncpy(countStr, headerStr, len1);
+        countStr[len1] = '\0';
+        
+        char* p2 = strchr(p1 + 1, ';');
+        if (p2) {
+          uint8_t len2 = p2 - (p1 + 1);
+          strncpy(condStr, p1 + 1, len2);
+          condStr[len2] = '\0';
+        } else {
+          strcpy(condStr, p1 + 1);
+        }
+      } else {
+        strcpy(countStr, headerStr);
+      }
+
+      char* body = closeParen + 1;
+      body = trim(body);
+      if (body[0] == '{') {
+        char* closeBrace = findMatchingBrace(body);
+        if (closeBrace) *closeBrace = '\0';
+        body++;
+      }
+
+      int count = (strlen(countStr) > 0) ? parsePinOrValue(countStr) : 1;
+      if (count <= 0) count = 1;
+      if (count > 100) count = 100;
+
+      for (int i = 0; i < count; i++) {
+        if (strlen(condStr) > 0) {
+          char tempCond[60];
+          strcpy(tempCond, condStr);
+          if (!evalCondition(tempCond)) break;
+        }
+        executeCBlock(body);
+      }
+      return;
+    }
+  }
+
+  // การประมวลผลคำสั่งฟังก์ชันทั่วไป
   char funcName[24];
   char args[100];
   char* openParen = strchr(line, '(');
@@ -191,23 +396,35 @@ void executeCLine(char* line) {
 
   if (openParen && closeParen && closeParen > openParen) {
     uint8_t funcLen = openParen - line;
+    if (funcLen >= sizeof(funcName)) funcLen = sizeof(funcName) - 1;
     strncpy(funcName, line, funcLen);
     funcName[funcLen] = '\0';
     trim(funcName);
 
     uint8_t argsLen = closeParen - openParen - 1;
+    if (argsLen >= sizeof(args)) argsLen = sizeof(args) - 1;
     strncpy(args, openParen + 1, argsLen);
     args[argsLen] = '\0';
 
+    char argsCopy[100];
+    strcpy(argsCopy, args);
+
     char* argList[6] = {NULL, NULL, NULL, NULL, NULL, NULL};
     uint8_t argCount = 0;
-    char* token = strtok(args, ",");
-    while (token != NULL && argCount < 6) {
-      argList[argCount++] = token;
-      token = strtok(NULL, ",");
+    
+    // แยกอาร์กิวเมนต์แบบไม่ทำลายโครงสร้างหลัก
+    char* ptr = argsCopy;
+    while (ptr && *ptr != '\0' && argCount < 6) {
+      argList[argCount++] = ptr;
+      char* nextComma = strchr(ptr, ',');
+      if (nextComma) {
+        *nextComma = '\0';
+        ptr = nextComma + 1;
+      } else {
+        break;
+      }
     }
 
-    // 1. TIMING & DELAYS
     if (strcmp(funcName, "delay") == 0 && argCount >= 1) {
       int ms = evaluateExpression(argList[0]);
       Serial.print(F(" [C Exec] delay(")); Serial.print(ms); Serial.println(F(" ms)"));
@@ -218,8 +435,6 @@ void executeCLine(char* line) {
       Serial.print(F(" [C Exec] delayMicroseconds(")); Serial.print(us); Serial.println(F(" us)"));
       delayMicroseconds(us);
     }
-
-    // 2. DIGITAL & ANALOG I/O
     else if (strcmp(funcName, "pinMode") == 0 && argCount >= 2) {
       int pin = parsePinOrValue(argList[0]);
       int mode = parsePinOrValue(argList[1]);
@@ -259,8 +474,6 @@ void executeCLine(char* line) {
       analogReference(type);
       Serial.print(F(" [C Exec] analogReference(")); Serial.print(type); Serial.println(F(")"));
     }
-
-    // 3. ADVANCED SOUND & PULSE
     else if (strcmp(funcName, "tone") == 0 && argCount >= 2) {
       int pin = parsePinOrValue(argList[0]);
       int freq = parsePinOrValue(argList[1]);
@@ -283,8 +496,6 @@ void executeCLine(char* line) {
       unsigned long duration = pulseIn(pin, state);
       Serial.print(F(" [C Exec] pulseIn(")); Serial.print(pin); Serial.print(F(") => ")); Serial.print(duration); Serial.println(F(" us"));
     }
-
-    // 4. MATH & BITWISE UTILITIES
     else if (strcmp(funcName, "map") == 0 && argCount >= 5) {
       long val = parsePinOrValue(argList[0]);
       long in_min = parsePinOrValue(argList[1]);
@@ -312,8 +523,6 @@ void executeCLine(char* line) {
       bitClear(val, bit);
       Serial.print(F(" [C Bit] bitClear => ")); Serial.println(val);
     }
-
-    // 5. I2C HARDWARE BUS
     else if (strcmp(funcName, "Wire.begin") == 0) {
       Wire.begin();
       Serial.println(F(" [C Exec] Wire.begin() (I2C Master Initialized)"));
@@ -335,8 +544,6 @@ void executeCLine(char* line) {
       }
       if (nDevices == 0) Serial.println(F("  -> No I2C devices found"));
     }
-
-    // 6. SERIAL I/O
     else if (strncmp(funcName, "Serial", 6) == 0) {
       HardwareSerial* targetSerial = &Serial;
       if (strncmp(funcName, "Serial1", 7) == 0) targetSerial = &Serial1;
@@ -360,7 +567,39 @@ void executeCLine(char* line) {
   }
 }
 
-// แก้ไขฟังก์ชันรันไฟล์ให้อ่านและคั่นด้วยทั้ง \n, \r และ ;
+// แยกคำสั่งหลายบรรทัดรันตามลำดับ
+void executeCBlock(char* block) {
+  char subCmd[MAX_CMD_LEN];
+  uint8_t subIdx = 0;
+  bool inQuotes = false;
+  int parenDepth = 0;
+  int braceDepth = 0;
+  int len = strlen(block);
+
+  for (int j = 0; j <= len; j++) {
+    char c = block[j];
+    if (c == '"') inQuotes = !inQuotes;
+    if (!inQuotes) {
+      if (c == '(') parenDepth++;
+      else if (c == ')' && parenDepth > 0) parenDepth--;
+      else if (c == '{') braceDepth++;
+      else if (c == '}') braceDepth--;
+    }
+
+    if (((c == ';' || c == '\n' || c == '\r') && !inQuotes && parenDepth == 0 && braceDepth == 0) || c == '\0') {
+      subCmd[subIdx] = '\0';
+      if (strlen(subCmd) > 0) {
+        executeCLine(subCmd);
+      }
+      subIdx = 0;
+    } else {
+      if (subIdx < sizeof(subCmd) - 1) {
+        subCmd[subIdx++] = c;
+      }
+    }
+  }
+}
+
 void runCScript(const char* filename) {
   int idx = findFile(filename);
   if (idx == -1) {
@@ -377,31 +616,19 @@ void runCScript(const char* filename) {
 
   Serial.print(F("Executing C Script '")); Serial.print(filename); Serial.println(F("'...\n"));
 
-  char lineBuffer[MAX_CMD_LEN];
-  uint8_t lineIdx = 0;
-  bool inQuotes = false;
+  char* scriptBuffer = (char*)malloc(len + 1);
+  if (!scriptBuffer) {
+    Serial.println(F("run: Out of memory"));
+    return;
+  }
 
   for (uint16_t i = 0; i < len; i++) {
-    char c = EEPROM.read(addr + 2 + i);
-
-    if (c == '"') {
-      inQuotes = !inQuotes;
-    }
-
-    // หากเจอ \n, \r หรือ ; (ขณะไม่ได้อยู่ในเครื่องหมายคำพูด ") ให้รันคำสั่งทันที
-    if ((c == '\n' || c == '\r' || (c == ';' && !inQuotes))) {
-      lineBuffer[lineIdx] = '\0';
-      executeCLine(lineBuffer);
-      lineIdx = 0;
-    } else {
-      if (lineIdx < sizeof(lineBuffer) - 1) lineBuffer[lineIdx++] = c;
-    }
+    scriptBuffer[i] = (char)EEPROM.read(addr + 2 + i);
   }
+  scriptBuffer[len] = '\0';
 
-  if (lineIdx > 0) {
-    lineBuffer[lineIdx] = '\0';
-    executeCLine(lineBuffer);
-  }
+  executeCBlock(scriptBuffer);
+  free(scriptBuffer);
 
   Serial.println(F("\n[ Execution Finished ]"));
 }
@@ -551,7 +778,7 @@ void cmdLs() {
       else if (len < 100) Serial.print(F("  "));
       else Serial.print(F(" "));
       Serial.print(len);
-      Serial.print(F(" Sep  3 2026 "));
+      Serial.print(F(" Sep  5 2026 "));
       Serial.println(fileTable[i].name);
     }
   }
@@ -569,6 +796,336 @@ void cmdFree() {
   Serial.println(F("EEPROM:        4.0Ki (Internal)"));
 }
 
+// -------------------------------------------------------------------
+// FULL UNIX ED IMPLEMENTATION
+// -------------------------------------------------------------------
+
+void saveEdBufferToEEPROM(const char* targetFilename) {
+  const char* fn = (targetFilename && strlen(targetFilename) > 0) ? targetFilename : edFilename;
+  
+  if (strlen(fn) == 0) {
+    Serial.println(F("? No current filename"));
+    return;
+  }
+
+  cmdTouch(fn);
+  int idx = findFile(fn);
+  if (idx == -1) {
+    Serial.println(F("? File error"));
+    return;
+  }
+
+  editingFileIdx = idx;
+  strncpy(edFilename, fn, 15);
+
+  uint16_t addr = fileTable[editingFileIdx].address;
+  uint16_t writePos = addr + 2;
+  uint16_t totalBytes = 0;
+
+  for (int i = 0; i < edLineCount; i++) {
+    uint16_t lLen = strlen(edBuffer[i]);
+    for (uint16_t j = 0; j < lLen; j++) {
+      if (totalBytes < MAX_FILE_SIZE - 2) {
+        EEPROM.write(writePos++, edBuffer[i][j]);
+        totalBytes++;
+      }
+    }
+    if (i < edLineCount - 1) {
+      if (totalBytes < MAX_FILE_SIZE - 2) {
+        EEPROM.write(writePos++, '\n');
+        totalBytes++;
+      }
+    }
+  }
+  EEPROM.write(addr, (totalBytes >> 8) & 0xFF);
+  EEPROM.write(addr + 1, totalBytes & 0xFF);
+  edModified = false;
+  Serial.println(totalBytes);
+}
+
+void startEd(const char* filename) {
+  strncpy(edFilename, filename, 15);
+  int idx = findFile(filename);
+
+  editingFileIdx = idx;
+  currentMode = MODE_ED_CMD;
+  edLineCount = 0;
+  edCurrentLine = 0;
+  edModified = false;
+
+  if (idx != -1) {
+    uint16_t addr = fileTable[idx].address;
+    uint16_t len = (EEPROM.read(addr) << 8) | EEPROM.read(addr + 1);
+    if (len == 0xFFFF) len = 0;
+
+    if (len > 0) {
+      char curLine[MAX_ED_LINE_LEN];
+      uint8_t cIdx = 0;
+      for (uint16_t i = 0; i < len; i++) {
+        char c = EEPROM.read(addr + 2 + i);
+        if (c == '\n' || c == '\r') {
+          curLine[cIdx] = '\0';
+          if (edLineCount < MAX_ED_LINES) {
+            strcpy(edBuffer[edLineCount++], curLine);
+          }
+          cIdx = 0;
+        } else {
+          if (cIdx < MAX_ED_LINE_LEN - 1) curLine[cIdx++] = c;
+        }
+      }
+      if (cIdx > 0 && edLineCount < MAX_ED_LINES) {
+        curLine[cIdx] = '\0';
+        strcpy(edBuffer[edLineCount++], curLine);
+      }
+      edCurrentLine = edLineCount;
+      Serial.println(len);
+    } else {
+      Serial.println(0);
+    }
+  } else {
+    Serial.println(F("?"));
+  }
+}
+
+void parseEdRange(char* cmd, int* start, int* end, char** actionCmd) {
+  *start = edCurrentLine;
+  *end = edCurrentLine;
+
+  if (cmd[0] == ',') {
+    *start = 1;
+    *end = edLineCount;
+    *actionCmd = cmd + 1;
+    return;
+  }
+
+  if (isdigit(cmd[0])) {
+    *start = atoi(cmd);
+    char* p = cmd;
+    while (isdigit(*p)) p++;
+    if (*p == ',') {
+      p++;
+      if (*p == '$') {
+        *end = edLineCount;
+        p++;
+      } else if (isdigit(*p)) {
+        *end = atoi(p);
+        while (isdigit(*p)) p++;
+      }
+    } else {
+      *end = *start;
+    }
+    *actionCmd = p;
+  } else if (cmd[0] == '$') {
+    *start = edLineCount;
+    *end = edLineCount;
+    *actionCmd = cmd + 1;
+  } else {
+    *actionCmd = cmd;
+  }
+}
+
+void handleEdSubstitute(int start, int end, char* subArgs) {
+  if (start < 1 || end > edLineCount || start > end) {
+    Serial.println(F("?"));
+    return;
+  }
+
+  char delim = subArgs[0];
+  if (delim == '\0') {
+    Serial.println(F("?"));
+    return;
+  }
+
+  char* oldStr = subArgs + 1;
+  char* newStr = strchr(oldStr, delim);
+  if (!newStr) {
+    Serial.println(F("?"));
+    return;
+  }
+  *newStr = '\0';
+  newStr++;
+
+  char* endDelim = strchr(newStr, delim);
+  if (endDelim) *endDelim = '\0';
+
+  bool substituted = false;
+  for (int i = start - 1; i < end; i++) {
+    char* pos = strstr(edBuffer[i], oldStr);
+    if (pos) {
+      char tempBuffer[MAX_ED_LINE_LEN];
+      int prefixLen = pos - edBuffer[i];
+      strncpy(tempBuffer, edBuffer[i], prefixLen);
+      tempBuffer[prefixLen] = '\0';
+      
+      strncat(tempBuffer, newStr, MAX_ED_LINE_LEN - strlen(tempBuffer) - 1);
+      strncat(tempBuffer, pos + strlen(oldStr), MAX_ED_LINE_LEN - strlen(tempBuffer) - 1);
+
+      strcpy(edBuffer[i], tempBuffer);
+      edCurrentLine = i + 1;
+      substituted = true;
+      edModified = true;
+    }
+  }
+
+  if (substituted) {
+    Serial.println(edBuffer[edCurrentLine - 1]);
+  } else {
+    Serial.println(F("?"));
+  }
+}
+
+void processEdCommand(char* cmd) {
+  cmd = trim(cmd);
+
+  if (strlen(cmd) == 0) {
+    if (edCurrentLine < edLineCount) {
+      edCurrentLine++;
+      Serial.println(edBuffer[edCurrentLine - 1]);
+    } else {
+      Serial.println(F("?"));
+    }
+    return;
+  }
+
+  if (strcmp(cmd, "q") == 0) {
+    if (edModified) {
+      Serial.println(F("?"));
+      edModified = false;
+    } else {
+      currentMode = MODE_SHELL;
+      editingFileIdx = -1;
+      edFilename[0] = '\0';
+    }
+    return;
+  }
+
+  if (cmd[0] == 'w') {
+    char* targetFile = trim(cmd + 1);
+    saveEdBufferToEEPROM(targetFile);
+    return;
+  }
+
+  if (strcmp(cmd, "f") == 0) {
+    if (strlen(edFilename) > 0) Serial.println(edFilename);
+    else Serial.println(F("?"));
+    return;
+  }
+
+  if (strcmp(cmd, "=") == 0) {
+    Serial.println(edLineCount);
+    return;
+  }
+
+  int start, end;
+  char* act;
+  parseEdRange(cmd, &start, &end, &act);
+
+  if (act[0] == 's') {
+    handleEdSubstitute(start, end, act + 1);
+    return;
+  }
+
+  if (strcmp(act, "a") == 0) {
+    currentMode = MODE_ED_INPUT;
+    return;
+  }
+
+  if (strcmp(act, "i") == 0) {
+    if (edCurrentLine > 0) edCurrentLine--;
+    currentMode = MODE_ED_INPUT;
+    return;
+  }
+
+  if (strcmp(act, "c") == 0) {
+    if (start >= 1 && end <= edLineCount && start <= end) {
+      int linesToRemove = end - start + 1;
+      for (int i = start - 1; i + linesToRemove < edLineCount; i++) {
+        strcpy(edBuffer[i], edBuffer[i + linesToRemove]);
+      }
+      edLineCount -= linesToRemove;
+      edCurrentLine = (start - 1 > 0) ? start - 1 : 0;
+      edModified = true;
+    }
+    currentMode = MODE_ED_INPUT;
+    return;
+  }
+
+  if (strcmp(act, "d") == 0) {
+    if (start >= 1 && end <= edLineCount && start <= end) {
+      int linesToRemove = end - start + 1;
+      for (int i = start - 1; i + linesToRemove < edLineCount; i++) {
+        strcpy(edBuffer[i], edBuffer[i + linesToRemove]);
+      }
+      edLineCount -= linesToRemove;
+      edCurrentLine = (start <= edLineCount) ? start : edLineCount;
+      edModified = true;
+    } else {
+      Serial.println(F("?"));
+    }
+    return;
+  }
+
+  if (strcmp(act, "p") == 0) {
+    if (start >= 1 && end <= edLineCount && start <= end) {
+      for (int i = start; i <= end; i++) {
+        Serial.println(edBuffer[i - 1]);
+      }
+      edCurrentLine = end;
+    } else {
+      Serial.println(F("?"));
+    }
+    return;
+  }
+
+  if (strcmp(act, "n") == 0) {
+    if (start >= 1 && end <= edLineCount && start <= end) {
+      for (int i = start; i <= end; i++) {
+        Serial.print(i);
+        Serial.print(F("\t"));
+        Serial.println(edBuffer[i - 1]);
+      }
+      edCurrentLine = end;
+    } else {
+      Serial.println(F("?"));
+    }
+    return;
+  }
+
+  if (isdigit(cmd[0])) {
+    int target = atoi(cmd);
+    if (target >= 1 && target <= edLineCount) {
+      edCurrentLine = target;
+      Serial.println(edBuffer[edCurrentLine - 1]);
+    } else {
+      Serial.println(F("?"));
+    }
+    return;
+  }
+
+  Serial.println(F("?"));
+}
+
+void processEdInput(char* line) {
+  if (strcmp(line, ".") == 0) {
+    currentMode = MODE_ED_CMD;
+    return;
+  }
+
+  if (edLineCount < MAX_ED_LINES) {
+    for (int i = edLineCount; i > edCurrentLine; i--) {
+      strcpy(edBuffer[i], edBuffer[i - 1]);
+    }
+    strncpy(edBuffer[edCurrentLine], line, MAX_ED_LINE_LEN - 1);
+    edBuffer[edCurrentLine][MAX_ED_LINE_LEN - 1] = '\0';
+    edLineCount++;
+    edCurrentLine++;
+    edModified = true;
+  } else {
+    Serial.println(F("? Buffer full"));
+    currentMode = MODE_ED_CMD;
+  }
+}
+
 void printLinuxHelp() {
   Serial.println(F("\n=========================================="));
   Serial.println(F("         LINUX SYSTEM COMMANDS            "));
@@ -579,6 +1136,7 @@ void printLinuxHelp() {
   Serial.println(F("  rm <file>       : Remove file from EEPROM"));
   Serial.println(F("  cp <src> <dst>  : Copy file content"));
   Serial.println(F("  wc <file>       : Count lines, words, chars"));
+  Serial.println(F("  ed <file>       : Unix ed line-oriented text editor"));
   Serial.println(F("  pwd             : Show current working directory"));
   Serial.println(F("  echo <text>     : Print string to terminal"));
   Serial.println(F("  clear           : Clear terminal screen"));
@@ -621,6 +1179,9 @@ void printArduinoHelp() {
   Serial.println(F("  wireScan()                 : Scan for I2C addresses"));
   Serial.println(F("  Serial.println(\"text\")     : Serial output"));
   Serial.println(F("  if (cond) { body }         : Logic branch support"));
+  Serial.println(F("  while (cond) { body }      : Loop structure support"));
+  Serial.println(F("  do { body } while (cond)   : Loop structure support"));
+  Serial.println(F("  for (count) { body }       : Loop structure support"));
   Serial.println(F("==========================================\n"));
 }
 
@@ -630,7 +1191,7 @@ void startNano(const char* filename) {
   if (idx == -1) return;
 
   editingFileIdx = idx;
-  isEditing = true;
+  currentMode = MODE_NANO;
 
   Serial.print(F("\033[2J\033[H"));
   Serial.print(F("  GNU nano C-Editor (Mega2560)   File: "));
@@ -653,7 +1214,7 @@ void saveAndExitNano(char* text) {
   }
 
   Serial.println(F("\n[ Script saved to EEPROM ]"));
-  isEditing = false;
+  currentMode = MODE_SHELL;
   editingFileIdx = -1;
   showPrompt();
 }
@@ -678,11 +1239,12 @@ void processCommand(char* cmd) {
   else if (strncmp(cmd, "touch ", 6) == 0) cmdTouch(cmd + 6);
   else if (strncmp(cmd, "wc ", 3) == 0) cmdWc(cmd + 3);
   else if (strncmp(cmd, "cp ", 3) == 0) cmdCp(cmd + 3);
+  else if (strncmp(cmd, "ed ", 3) == 0) startEd(cmd + 3);
   else if (strncmp(cmd, "nano ", 5) == 0) startNano(cmd + 5);
   else if (strncmp(cmd, "run ", 4) == 0) runCScript(cmd + 4);
   else if (strcmp(cmd, "uname") == 0 || strcmp(cmd, "uname -a") == 0) {
     Serial.print(F("Linux ")); Serial.print(HOSTNAME); Serial.print(F(" ")); Serial.print(KERNEL_VER);
-    Serial.println(F(" #1 SMP PREEMPT Thu Sep 03 2026 avr2560 GNU/Linux"));
+    Serial.println(F(" #1 SMP PREEMPT Sat Sep 05 2026 avr2560 GNU/Linux"));
   } 
   else if (strcmp(cmd, "help") == 0) {
     printLinuxHelp();
@@ -712,11 +1274,30 @@ void loop() {
   while (Serial.available() > 0) {
     char c = Serial.read();
 
-    if (isEditing) {
+    if (currentMode == MODE_NANO) {
       if (c != '\r' && c != '\n') Serial.print(c);
       if (c == '\r' || c == '\n') {
         inputBuffer[bufferIndex] = '\0';
         saveAndExitNano(inputBuffer);
+        bufferIndex = 0;
+      } else if (c == '\b' || c == 127) {
+        if (bufferIndex > 0) { bufferIndex--; Serial.print(F("\b \b")); }
+      } else {
+        if (bufferIndex < MAX_CMD_LEN - 1) inputBuffer[bufferIndex++] = c;
+      }
+      continue;
+    }
+
+    if (currentMode == MODE_ED_CMD || currentMode == MODE_ED_INPUT) {
+      if (c != '\r' && c != '\n') Serial.print(c);
+      if (c == '\r' || c == '\n') {
+        Serial.println();
+        inputBuffer[bufferIndex] = '\0';
+        if (currentMode == MODE_ED_CMD) {
+          processEdCommand(inputBuffer);
+        } else {
+          processEdInput(inputBuffer);
+        }
         bufferIndex = 0;
       } else if (c == '\b' || c == 127) {
         if (bufferIndex > 0) { bufferIndex--; Serial.print(F("\b \b")); }
@@ -732,7 +1313,9 @@ void loop() {
       inputBuffer[bufferIndex] = '\0';
       processCommand(inputBuffer);
       bufferIndex = 0;
-      showPrompt();
+      if (currentMode == MODE_SHELL) {
+        showPrompt();
+      }
     } else if (c == '\b' || c == 127) {
       if (bufferIndex > 0) { bufferIndex--; Serial.print(F("\b \b")); }
     } else {
