@@ -53,8 +53,8 @@ https://youtu.be/_VCTRxD8m0M?si=hv8ieFO4rIRtqwD9
 | uname, uname -a | Show system and Linux kernel details |
 | reboot | Restart the ATmega2560 board |
 🛠️ Arduino C-Script Management, Editing & Execution
- * ed <file>: Open the Unix ed line-oriented text editor.
- * nano <file.c>: Open the Nano text editor to write or edit a C script.
+ * ed <file>: Open the Unix ed line-oriented text editor (full function Unix text editor commands).
+ * nano <file.c>: Open the Nano basic text editor to write a C script--(can not edit)
  * run <file.c>: Execute a C script using the built-in interpreter.
 ⚡ Supported C-Script API Functions
  * Digital I/O Operations:
@@ -116,10 +116,10 @@ Serial1.begin(9600); map(analogRead(A15), 0, 1023, 0, 255); Serial1.println("Dat
 * USB Cable: Type-A to Type-B USB Cable
 * Terminal Emulator: Arduino Serial Monitor, PuTTY, Tera Term, or Serial/Minicom on Linux/macOS.
 Updated ***5 sep 2026***
-## 🚀 Update Notes: Command Reference & Help System Integration,add ed editor and loop commands
+## 🚀 Update Notes: Command Reference & Help System Integration,add ed editor and loop commands version 6.9.1
 
 Updated ***4 sep 2026***
-## 🚀 Update Notes: Command Reference & Help System Integration
+## 🚀 Update Notes: Command Reference & Help System Integration version 6.9.0
 
 
 ---
