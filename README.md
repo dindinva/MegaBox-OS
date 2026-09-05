@@ -126,7 +126,7 @@ Diagnostics & Monitoring
 1. Open `MegaBox.ino` in the Arduino IDE.
 2. Select **Board**: `Arduino Mega or Mega 2560` and choose the correct serial port.
 3. Upload the sketch to your board.
-4. Open **Serial Monitor** at **9600 baud** (Set line ending to 'newline').
+4. Open **Serial Monitor** at **9600 baud** (Set line ending to 'Newline').
 
 ### 2. Creating & Executing C Scripts
 
