@@ -155,7 +155,7 @@ for(i=0;i<6;i++){togglePin(13);delay(500);}
 
 
 
-####  Hardware Requirements
+##  Hardware Requirements
 * Board: Arduino Mega 2560 (ATmega2560)
 * USB Cable: Type-A to Type-B USB Cable
 * Terminal Emulator: Arduino Serial Monitor, PuTTY, Tera Term, or Serial/Minicom on Linux/macOS.
