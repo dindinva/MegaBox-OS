@@ -27,35 +27,69 @@
 Usage example:
 https://youtu.be/_VCTRxD8m0M?si=hv8ieFO4rIRtqwD9
 -----
-## 🛠️ Supported C Interpreter Functions
 
-MegaBox interprets the following syntax inside `.c` scripts saved on the device:
-
-| Category | Supported Functions & Syntax |
-| :--- | :--- |
-| **Digital I/O** | `pinMode(pin, mode)`, `digitalWrite(pin, val)`, `digitalRead(pin)` |
-| **Analog & PWM** | `analogRead(pin)`, `analogWrite(pin, val)` *(Supports A0–A15)* |
-| **Multi-Serial** | `Serial.begin(baud)`, `Serial1.println("str")`, `Serial2.println("str")`, `Serial3.println("str")` |
-| **Shift Registers** | `shiftOut(dataPin, clockPin, bitOrder, value)`, `shiftIn(dataPin, clockPin, bitOrder)` |
-| **Math & Logic** | `map(val, in_min, in_max, out_min, out_max)`, `constrain(val, min, max)` |
-| **Sound & Timing** | `tone(pin, freq, duration)`, `noTone(pin)`, `delay(ms)`, `delayMicroseconds(us)`, `millis()` |
-| **Control Flow** | `if (digitalRead(pin) == LOW) { digitalWrite(13, HIGH); }` |
-
----
-
-## ⌨️ Shell Commands
-
-Once connected via Serial Terminal (Baud Rate: `9600`, Line Ending: `Both NL & CR`), you will be greeted by the MegaBox shell prompt: `root@megabox:~#`
-
-* **`ls`** — List all script files saved in the 4 KB EEPROM filesystem along with byte size.
-* **`free`** — Display SRAM memory allocation (8 KiB total) and internal EEPROM storage state.
-* **`uname -a`** — Print kernel and target MCU architecture information.
-* **`i2cscan`** — Scan for attached I2C devices on pins 20 (SDA) and 21 (SCL).
-* **`pinstate`** — Display logic state (`HIGH` / `LOW`) for all 54 digital I/O pins.
-* **`nano <filename.c>`** — Open the built-in mini text editor to write/edit C scripts.
-* **`run <filename.c>`** — Execute the stored C script sequentially line by line.
-* **`clear`** — Clear the terminal window.
-* **`help`** — Show the help menu and supported functions list.
+📖 Manual & Help Commands
+ * help: Displays all available Linux system commands and Arduino C-Script API functions.
+ * help linux: Displays only the Linux system commands.
+ * help arduino: Displays only the Arduino C-Script API commands and functions.
+🐧 Linux System Commands
+| Command | Description / Function |
+|---|---|
+| ls, ls -l | List all files stored in EEPROM |
+| cat <file> | Display the contents of a file |
+| touch <file> | Create a new empty file |
+| rm <file> | Remove a file from EEPROM |
+| cp <src> <dst> | Copy content from a source file to a destination file |
+| wc <file> | Count lines, words, and characters in a file |
+| pwd | Print the current working directory (/root) |
+| echo <text> | Print a string to the terminal output |
+| clear | Clear the terminal screen |
+| free, free -h | Display RAM and EEPROM memory status |
+| uptime | Show system running time since boot |
+| ps, top | Show active processes and free SRAM |
+| dmesg | Display system boot log |
+| whoami | Show current logged-in user (root) |
+| hostname | Show the device hostname (megabox) |
+| uname, uname -a | Show system and Linux kernel details |
+| reboot | Restart the ATmega2560 board |
+🛠️ Arduino C-Script Management, Editing & Execution
+ * ed <file>: Open the Unix ed line-oriented text editor.
+ * nano <file.c>: Open the Nano text editor to write or edit a C script.
+ * run <file.c>: Execute a C script using the built-in interpreter.
+⚡ Supported C-Script API Functions
+ * Digital I/O Operations:
+   * pinMode(pin, mode): Set pin mode (INPUT, OUTPUT, INPUT_PULLUP).
+   * digitalWrite(pin, val): Write a digital value (HIGH, LOW).
+   * digitalRead(pin): Read digital signal state from a pin.
+   * togglePin(pin): Invert the current output state of a digital pin.
+ * Analog & PWM Operations:
+   * analogWrite(pin, val): Output PWM signal on a supported pin (range 0–255).
+   * analogRead(pin): Read analog input value from a pin (range 0–1023).
+   * analogReference(type): Set analog reference voltage (DEFAULT, INTERNAL1V1, INTERNAL2V56, EXTERNAL).
+ * System & Timing Functions:
+   * delay(ms): Pause execution for specified milliseconds.
+   * delayMicroseconds(us): Pause execution for specified microseconds.
+   * millis(): Return system uptime in milliseconds.
+   * micros(): Return system uptime in microseconds.
+ * Audio & Pulse Measurement:
+   * tone(pin, freq, [dur]): Generate a square wave of specified frequency on a pin (with optional duration).
+   * noTone(pin): Stop tone generation on a pin.
+   * pulseIn(pin, state): Measure the pulse width on a pin.
+ * Math & Bit Operations:
+   * map(v, fL, fH, tL, tH): Map a value from one range to another.
+   * constrain(v, min, max): Clamp a value within min and max boundaries.
+   * min(a, b), max(a, b), abs(x): Minimum, maximum, and absolute value functions.
+   * sqrt(x): Calculate square root.
+   * bitSet(x, n), bitClear(x, n): Set or clear a specific bit.
+ * Communication & Bus Interfaces:
+   * Wire.begin(): Initialize I2C bus as master.
+   * wireScan(): Scan for connected devices on the I2C bus.
+   * Serial.println("text"): Print text output to Serial port.
+ * Control Structures & Loops:
+   * if (cond) { body }: Conditional branching logic.
+   * while (cond) { body }: Standard while loop structure.
+   * do { body } while (cond): Do-while loop structure.
+   * for (count) { body }: Count-based loop structure.
 
 ---
 
@@ -81,79 +115,12 @@ Serial1.begin(9600); map(analogRead(A15), 0, 1023, 0, 255); Serial1.println("Dat
 * Board: Arduino Mega 2560 (ATmega2560)
 * USB Cable: Type-A to Type-B USB Cable
 * Terminal Emulator: Arduino Serial Monitor, PuTTY, Tera Term, or Serial/Minicom on Linux/macOS.
-
+Updated ***5 sep 2026***
+## 🚀 Update Notes: Command Reference & Help System Integration,add ed editor and loop commands
 
 Updated ***4 sep 2026***
 ## 🚀 Update Notes: Command Reference & Help System Integration
 
-We have updated the project's Help System to include a comprehensive command reference for both **Linux** shell environments and **Arduino C/C++** microcontroller programming. Users can access this documentation interactively via the built-in Serial CLI or Terminal interface using the `help`, `linux`, or `arduino` commands.
-
-## 🚀 Update Notes: Micro-Shell CLI & Arduino C-Script Interpreter
-
-We have updated the project documentation to reflect the latest embedded CLI system running on the **ATmega2560**. The environment now features a simulated **Linux-like file system stored in EEPROM** alongside an **on-board C-Script Interpreter**.
-
----
-
-### 🐧 Linux System Commands (EEPROM & ATmega2560 Shell)
-
-Commands executed directly in the embedded terminal to interact with EEPROM storage, monitor system memory (SRAM), and manage the ATmega2560 hardware.
-
-| Command | Usage | Description |
-| :--- | :--- | :--- |
-| **`ls`**, **`ls -l`** | `ls [-l]` | List files stored in EEPROM |
-| **`cat`** | `cat <file>` | Display content of a file |
-| **`touch`** | `touch <file>` | Create a new empty file in EEPROM |
-| **`rm`** | `rm <file>` | Remove a file from EEPROM storage |
-| **`cp`** | `cp <src> <dst>` | Copy file content to a new location |
-| **`wc`** | `wc <file>` | Count lines, words, and characters in a file |
-| **`pwd`** | `pwd` | Show current working directory |
-| **`echo`** | `echo <text>` | Print text string to terminal output |
-| **`clear`** | `clear` | Clear the terminal screen |
-| **`free`**, **`free -h`** | `free [-h]` | Display RAM (SRAM) and EEPROM usage status |
-| **`uptime`** | `uptime` | Show total system running time |
-| **`ps`**, **`top`** | `ps` / `top` | Display running tasks and active SRAM allocation |
-| **`dmesg`** | `dmesg` | Show system boot and initialization log |
-| **`whoami`** | `whoami` | Show current active user (`root`) |
-| **`hostname`** | `hostname` | Display device hostname |
-| **`uname -a`** | `uname -a` | Print Linux kernel details |
-| **`reboot`** | `reboot` | Restart the ATmega2560 board |
-
----
-
-### ⚡ Arduino C-Script API Commands & Interpreter Functions
-
-Use built-in utility commands to write or execute lightweight C scripts directly on the board.
-
-#### 🛠 CLI Script Management
-* **`nano <file.c>`** : Open the built-in text editor to create/edit a C script.
-* **`run <file.c>`** : Execute the C script using the embedded interpreter.
-
-#### 📜 Supported Functions inside C Scripts
-
-| Category | API Function / Syntax | Description |
-| :--- | :--- | :--- |
-| **Digital I/O** | `pinMode(pin, mode)` | Configure pin state (`INPUT`, `OUTPUT`, `INPUT_PULLUP`) |
-| | `digitalWrite(pin, val)` | Set digital output state (`HIGH`, `LOW`) |
-| | `digitalRead(pin)` | Read digital state from a pin |
-| | `togglePin(pin)` | Invert state of specified digital pin |
-| **Analog I/O** | `analogWrite(pin, val)` | Output PWM signal (`0 - 255`) |
-| | `analogRead(pin)` | Read analog input voltage (`0 - 1023`) |
-| | `analogReference(type)` | Set analog reference voltage (`DEFAULT`, `INTERNAL1V1`, etc.) |
-| **Time & Delays** | `delay(ms)` | Pause script execution in milliseconds |
-| | `delayMicroseconds(us)` | Pause script execution in microseconds |
-| | `millis()`, `micros()` | Return uptime timers (ms / us) |
-| **Audio & Signals** | `tone(pin, freq, [dur])` | Generate sound frequency on a pin |
-| | `noTone(pin)` | Stop active tone generation |
-| | `pulseIn(pin, state)` | Measure pulse width duration |
-| **Math & Utils** | `map(v, fL, fH, tL, tH)` | Map value from one range to another |
-| | `constrain(v, min, max)` | Clamp value bounds within min and max |
-| | `min(a,b)`, `max(a,b)`, `abs(x)` | Basic math operations |
-| | `sqrt(x)` | Calculate square root |
-| | `bitSet(x,n)`, `bitClear(x,n)` | Perform bitwise manipulation |
-| **I2C Communication**| `Wire.begin()` | Initialize I2C bus |
-| | `wireScan()` | Scan I2C bus for connected device addresses |
-| **Serial & Control** | `Serial.println("text")` | Output text to serial console |
-| | `if (cond) { body }` | Standard C conditional logic branching support |
 
 ---
 
