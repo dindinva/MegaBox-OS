@@ -131,34 +131,40 @@ Diagnostics & Monitoring
 ### 2. Creating & Executing C Scripts
 
 #### Example A: Conditional Button LED Trigger (`logic.c`)
+
 Enter `nano logic.c` in the terminal, type the following code, and press **ENTER**:
 
+
 pinMode(2, INPUT_PULLUP); pinMode(13, OUTPUT); if (digitalRead(2) == LOW) { digitalWrite(13, HIGH); }
+
 Then run the script:
+
 root@megabox:~# run logic.c
-Example B: Reading ADC & Sending Data over Secondary Hardware Serial (sensor.c)
+
+#### Example B: Reading ADC & Sending Data over Secondary Hardware Serial (sensor.c)
+
 Serial1.begin(9600); map(analogRead(A15), 0, 1023, 0, 255); Serial1.println("Data processed");
-📐 Hardware Requirements
+
+
+#### Example C: Blink led
+
+
+
+pinMode(13, OUTPUT);digitalWrite(13, HIGH);delay(1000);digitalWrite(13, LOW);
+
+
+
+####  Hardware Requirements
 * Board: Arduino Mega 2560 (ATmega2560)
 * USB Cable: Type-A to Type-B USB Cable
 * Terminal Emulator: Arduino Serial Monitor, PuTTY, Tera Term, or Serial/Minicom on Linux/macOS.
+
+* 
 Updated ***5 sep 2026***
-## 🚀 Update Notes: Command Reference & Help System Integration,add ed editor and loop commands version 6.9.1
+#### 🚀 Update Notes: Command Reference & Help System Integration,add ed editor and loop commands version 6.9.1
 
 Updated ***4 sep 2026***
-## 🚀 Update Notes: Command Reference & Help System Integration version 6.9.0
+#### 🚀 Update Notes: Command Reference & Help System Integration version 6.9.0
 
 
 ---
-
-### 💡 Quick Start Example
-
-```bash
-# 1. Create a C script in EEPROM
-nano blink.c
-
-# 2. Write code inside editor (1 line), then press ENTER to save
-pinMode(13, OUTPUT);digitalWrite(13, HIGH);delay(1000);digitalWrite(13, LOW);
-
-# 3. Execute the script
-run blink.c
