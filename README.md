@@ -160,8 +160,8 @@ for(i=0;i<6;i++){togglePin(13);delay(500);}
 * USB Cable: Type-A to Type-B USB Cable
 * Terminal Emulator: Arduino Serial Monitor, PuTTY, Tera Term, or Serial/Minicom on Linux/macOS.
 
-Updated ***6 Sep 2026***
-#### 🚀 Update Notes: Fixed for-loop.
+Updated ***6 Sep 2026*** 
+#### 🚀 Update Notes: Fixed for-loop.version 6.9.2
 Updated ***5 Sep 2026***
 #### 🚀 Update Notes: Command Reference & Help System Integration,add ed editor and loop commands version 6.9.1
 
