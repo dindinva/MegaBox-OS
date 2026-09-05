@@ -35,29 +35,53 @@ https://youtu.be/_VCTRxD8m0M?si=hv8ieFO4rIRtqwD9
  * 
 🐧 Linux System Commands
 File System Operations
+
  ⁠ls⁠, ⁠ls -l⁠: List all files stored in EEPROM.  
+ 
  ⁠cat <file>⁠: Display the contents of a file.  
+ 
  ⁠touch <file>⁠: Create a new empty file.  
+ 
  ⁠rm <file>⁠: Remove a file from EEPROM.  
+ 
  ⁠cp <src> <dst>⁠: Copy content from a source file to a destination file.  
+ 
  ⁠wc <file>⁠: Count lines, words, and characters in a file.  
+ 
 System & Environment
+
  ⁠pwd⁠: Print the current working directory (⁠/root⁠).  
+ 
  ⁠echo <text>⁠: Print a string to the terminal output.  
+ 
  ⁠clear⁠: Clear the terminal screen.  
+ 
  ⁠whoami⁠: Show current logged-in user (⁠root⁠).  
+ 
  ⁠hostname⁠: Show the device hostname (⁠megabox⁠).  
+ 
  ⁠uname⁠, ⁠uname -a⁠: Show system and Linux kernel details.  
+ 
  ⁠reboot⁠: Restart the ATmega2560 board.  
+ 
 Diagnostics & Monitoring
+
  ⁠free⁠, ⁠free -h⁠: Display RAM and EEPROM memory status.  
- ⁠uptime⁠: Show system running time since boot.  
- ⁠ps⁠, ⁠top⁠: Show active processes and free SRAM.  
+ 
+ ⁠uptime⁠: Show system running time since boot. 
+ 
+ ⁠ps⁠, ⁠top⁠: Show active processes and free SRAM.
+ 
  ⁠dmesg⁠: Display system boot log.  
+ 
 🛠️ Arduino C-Script Management, Editing & Execution
+
  ⁠ed <file>⁠: Open the Unix ⁠ed⁠ line-oriented text editor (full functions editor).  
+ 
  ⁠nano <file.c>⁠: Open the Nano basic text editor to write a C script (can not edit).  
+ 
  ⁠run <file.c>⁠: Execute a C script using the built-in interpreter.
+ 
  * 
 ⚡ Supported C-Script API Functions
  * Digital I/O Operations:
