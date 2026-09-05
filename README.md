@@ -28,13 +28,13 @@ Usage example:
 https://youtu.be/_VCTRxD8m0M?si=hv8ieFO4rIRtqwD9
 -----
 
-📖 Manual & Help Commands
+### 📖 Manual & Help Commands
  * help: Displays all available Linux system commands and Arduino C-Script API functions.
  * help linux: Displays only the Linux system commands.
  * help arduino: Displays only the Arduino C-Script API commands and functions.
  * 
-🐧 Linux System Commands
-File System Operations
+### 🐧 Linux System Commands
+### File System Operations
 
  ⁠ls⁠, ⁠ls -l⁠: List all files stored in EEPROM.  
  
@@ -48,7 +48,7 @@ File System Operations
  
  ⁠wc <file>⁠: Count lines, words, and characters in a file.  
  
-System & Environment
+### System & Environment
 
  ⁠pwd⁠: Print the current working directory (⁠/root⁠).  
  
@@ -64,7 +64,7 @@ System & Environment
  
  ⁠reboot⁠: Restart the ATmega2560 board.  
  
-Diagnostics & Monitoring
+### Diagnostics & Monitoring
 
  ⁠free⁠, ⁠free -h⁠: Display RAM and EEPROM memory status.  
  
@@ -74,7 +74,7 @@ Diagnostics & Monitoring
  
  ⁠dmesg⁠: Display system boot log.  
  
-🛠️ Arduino C-Script Management, Editing & Execution
+### 🛠️ Arduino C-Script Management, Editing & Execution
 
  ⁠ed <file>⁠: Open the Unix ⁠ed⁠ line-oriented text editor (full functions editor).  
  
@@ -83,36 +83,36 @@ Diagnostics & Monitoring
  ⁠run <file.c>⁠: Execute a C script using the built-in interpreter.
  
  * 
-⚡ Supported C-Script API Functions
- * Digital I/O Operations:
+### ⚡ Supported C-Script API Functions
+ #### * Digital I/O Operations:
    * pinMode(pin, mode): Set pin mode (INPUT, OUTPUT, INPUT_PULLUP).
    * digitalWrite(pin, val): Write a digital value (HIGH, LOW).
    * digitalRead(pin): Read digital signal state from a pin.
    * togglePin(pin): Invert the current output state of a digital pin.
- * Analog & PWM Operations:
+ #### * Analog & PWM Operations:
    * analogWrite(pin, val): Output PWM signal on a supported pin (range 0–255).
    * analogRead(pin): Read analog input value from a pin (range 0–1023).
    * analogReference(type): Set analog reference voltage (DEFAULT, INTERNAL1V1, INTERNAL2V56, EXTERNAL).
- * System & Timing Functions:
+ #### * System & Timing Functions:
    * delay(ms): Pause execution for specified milliseconds.
    * delayMicroseconds(us): Pause execution for specified microseconds.
    * millis(): Return system uptime in milliseconds.
    * micros(): Return system uptime in microseconds.
- * Audio & Pulse Measurement:
+ #### * Audio & Pulse Measurement:
    * tone(pin, freq, [dur]): Generate a square wave of specified frequency on a pin (with optional duration).
    * noTone(pin): Stop tone generation on a pin.
    * pulseIn(pin, state): Measure the pulse width on a pin.
- * Math & Bit Operations:
+ #### * Math & Bit Operations:
    * map(v, fL, fH, tL, tH): Map a value from one range to another.
    * constrain(v, min, max): Clamp a value within min and max boundaries.
    * min(a, b), max(a, b), abs(x): Minimum, maximum, and absolute value functions.
    * sqrt(x): Calculate square root.
    * bitSet(x, n), bitClear(x, n): Set or clear a specific bit.
- * Communication & Bus Interfaces:
+ #### * Communication & Bus Interfaces:
    * Wire.begin(): Initialize I2C bus as master.
    * wireScan(): Scan for connected devices on the I2C bus.
    * Serial.println("text"): Print text output to Serial port.
- * Control Structures & Loops:
+ #### * Control Structures & Loops:
    * if (cond) { body }: Conditional branching logic.
    * while (cond) { body }: Standard while loop structure.
    * do { body } while (cond): Do-while loop structure.
